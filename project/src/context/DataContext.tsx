@@ -144,7 +144,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const completeGoal = (goalId: string) => {
-    const updatedGoals = goals.map(goal =>
+    const updatedGoals = goals.map(goal  =>
       goal.id === goalId
         ? { ...goal, completed: true, dateCompleted: new Date().toISOString() }
         : goal
