@@ -1,27 +1,32 @@
 from flask import Blueprint, request, jsonify
-from models import db, DailyData
+from models import  DailyData
+from extensions import db
 from datetime import datetime, timedelta
 from sqlalchemy import func
 from dotenv import load_dotenv
 import os
-import openai
+import cohere
+from openai import OpenAI
+import json
 
 data_bp = Blueprint('data', __name__, url_prefix='/data')
 
 load_dotenv()
-openai.api_key = os.getenv("OPENAI_API_KEY")
-
-@data_bp.route('/add', methods=['POST'])
-def add_data():
+co = cohere.Client("HCpjrF88IxJNE3kwA6lyOZYxapJ4qB6psPf2oeKA")
+@data_bp.route('/add/<int:user_id>', methods=['POST'])
+def add_data(user_id):
     data = request.json
     new_entry = DailyData(
-        user_id=data['user_id'],
+        user_id = user_id,
         date=datetime.utcnow().date(),
         travel=data['travel'],
         food=data['food'],
         waste=data['waste'],
         electricity=data['electricity']
     )
+    existing = DailyData.query.filter_by(user_id=user_id, date=datetime.utcnow().date()).first()
+    if existing:
+        return jsonify({'message': 'Data for today already exists'}), 400
     db.session.add(new_entry)
     db.session.commit()
     return jsonify({'message': 'Data added'}), 201
@@ -29,7 +34,8 @@ def add_data():
 @data_bp.route('/chart/<int:user_id>/<string:filter_type>', methods=['GET'])
 def get_chart_data(user_id, filter_type):
     now = datetime.utcnow().date()
-
+    print(user_id)
+    print(filter_type)
     if filter_type == 'weekly':
         start_date = now - timedelta(days=7)
     elif filter_type == 'monthly':
@@ -67,8 +73,6 @@ def get_daily_fact():
 
 @data_bp.route('/recommendations/<int:user_id>', methods=['GET'])
 def get_recommendations(user_id):
-    # Fetch recent user data (last 30 days)
-    from datetime import datetime, timedelta
     recent_data = DailyData.query.filter(
         DailyData.user_id == user_id,
         DailyData.date >= datetime.utcnow().date() - timedelta(days=30)
@@ -77,7 +81,7 @@ def get_recommendations(user_id):
     if not recent_data:
         return jsonify({'message': 'No data found'}), 404
 
-    # Summarize total emissions by category
+    # Summarize total emissions
     summary = {
         'travel': sum(d.travel for d in recent_data),
         'food': sum(d.food for d in recent_data),
@@ -86,22 +90,28 @@ def get_recommendations(user_id):
     }
 
     prompt = f"""
-    You are an environmental advisor AI. A user has emitted the following total carbon over the last 30 days:
-    - Travel: {summary['travel']} kg
-    - Food: {summary['food']} kg
-    - Waste: {summary['waste']} kg
-    - Electricity: {summary['electricity']} kWh
+    A user has emitted the following carbon emissions over the past 30 days:
+    - Travel: {summary['travel']} kg CO2
+    - Food: {summary['food']} kg CO2
+    - Waste: {summary['waste']} kg CO2
+    - Electricity: {summary['electricity']} kg CO2
 
     Based on this data:
-    1. Suggest **3 priority actions** with high CO2 savings (format: title, impact, effort, estimated CO2 saved daily, short description).
-    2. Give 3–5 actionable tips each for these categories: Transportation, Food & Diet, Energy Usage, Waste Reduction.
-    3. Return the output as a **structured JSON** in this format:
+    1. Suggest 3 priority actions with high CO2 savings.
+       Each should include: title, impact (High/Medium/Low), effort, estimated daily CO2 savings, and a short description.
+    2. Recommend 3–5 actionable tips each for:
+       - Transportation
+       - Food & Diet
+       - Energy Usage
+       - Waste Reduction
+
+    Return the result as a valid JSON in this format:
     {{
       "priority_actions": [
         {{
           "title": "...",
-          "impact": "High",
-          "effort": "Medium",
+          "impact": "...",
+          "effort": "...",
           "co2Savings": "...",
           "description": "..."
         }}
@@ -113,22 +123,25 @@ def get_recommendations(user_id):
         }}
       ]
     }}
+    Only return the JSON. No extra explanation.
     """
 
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "You generate eco-friendly recommendations."},
-                {"role": "user", "content": prompt}
-            ],
+        response = co.chat(
+            model="command-r",
+            message=prompt,
+            chat_history=[],
             temperature=0.7
         )
 
-        reply = response['choices'][0]['message']['content']
-        import json
-        structured_data = json.loads(reply)
+        json_text = response.text.strip()
+        structured_data = json.loads(json_text)
+        print(structured_data)
         return jsonify(structured_data)
 
+    except json.JSONDecodeError:
+        return jsonify({"error": "Cohere response was not valid JSON", "raw": json_text}), 500
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        print(str(e))
+        return jsonify({"error": str(e)}), 500
+

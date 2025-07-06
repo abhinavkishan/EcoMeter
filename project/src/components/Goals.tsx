@@ -1,9 +1,60 @@
-import React from 'react';
-import { Target, CheckCircle, Circle, Calendar, Award } from 'lucide-react';
-import { useData } from '../context/DataContext';
+import React, { useEffect, useState } from 'react';
+import {
+  Target, CheckCircle, Circle, Calendar, Award
+} from 'lucide-react';
+import axios from 'axios';
+
+interface Goal {
+  id: number;
+  title: string;
+  description: string;
+  category: string;
+  completed: boolean;
+  points: number;
+  dateCompleted?: string;
+}
 
 const Goals: React.FC = () => {
-  const { goals, completeGoal } = useData();
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [loading, setLoading] = useState(true);
+  const userId=localStorage.getItem('user_id');
+
+  const fetchGoals = async () => {
+    try {
+      // Step 1: Trigger goal generation (if not done recently)
+      await axios.post(`http://localhost:5000/generate_goals/${userId}`);
+
+      // Step 2: Get all goals
+      const res = await axios.get(`http://localhost:5000/goals/${userId}`);
+      const allGoals: Goal[] = res.data;
+
+      // Optional: Only show incomplete goals
+      const incompleteGoals = allGoals.filter(goal => !goal.completed);
+
+      setGoals(incompleteGoals); // or `setGoals(allGoals)` if you want both
+    } catch (err) {
+      console.error('Failed to load goals', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const completeGoal = async (id: number) => {
+    try {
+      await axios.patch(`http://localhost:5000/goals/complete/${userId}/${id}`);
+      setGoals((prev) =>
+        prev.map((goal) =>
+          goal.id === id ? { ...goal, completed: true, dateCompleted: new Date().toISOString() } : goal
+        )
+      );
+    } catch (err) {
+      console.error('Failed to complete goal', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchGoals();
+  }, []);
 
   const completedGoals = goals.filter(goal => goal.completed);
   const activeGoals = goals.filter(goal => !goal.completed);
@@ -38,6 +89,9 @@ const Goals: React.FC = () => {
     }
   };
 
+  if (loading) {
+    return <div className="p-6 text-gray-600">Loading goals...</div>;
+  }
   return (
     <div className="space-y-6">
       {/* Header */}

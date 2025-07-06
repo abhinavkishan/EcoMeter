@@ -1,34 +1,45 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Leaf, Eye, EyeOff } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
 
 const Login: React.FC = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  
-  const { login } = useAuth();
+const [email, setEmail] = useState('');
+const [password, setPassword] = useState('');
+const [showPassword, setShowPassword] = useState(false);
+const [isLoading, setIsLoading] = useState(false);
+const [error, setError] = useState('');
+const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError('');
+const handleSubmit = async (e: React.FormEvent) => {
+e.preventDefault();
+setError('');
+setIsLoading(true);
 
-    try {
-      const success = await login(email, password);
-      if (!success) {
-        setError('Invalid email or password');
-      }
-    } catch (err) {
-      setError('Login failed. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+try {
+  const res = await fetch('http://localhost:5000/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      username: email,
+      password,
+    }),
+  });
 
+  const data = await res.json();
+
+  if (res.ok) {
+    localStorage.setItem('isLoggedIn', 'true');
+    localStorage.setItem('user_id',data.user_id);
+    navigate('/dashboard');
+  } else {
+    setError(data.message || 'Invalid credentials');
+  }
+} catch (err) {
+  setError('Login failed. Please try again.');
+} finally {
+  setIsLoading(false);
+}
+};
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">

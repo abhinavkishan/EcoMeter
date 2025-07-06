@@ -1,41 +1,78 @@
-import React, { useState } from 'react';
-import { Car, Utensils, Trash2, Zap, TrendingUp, Target, Gift, BookOpen } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { useData } from '../context/DataContext';
+import React, { useState, useEffect } from 'react';
+import {
+  Car, Utensils, Trash2, Zap, TrendingUp, Target, Gift, BookOpen
+} from 'lucide-react';
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  ResponsiveContainer, PieChart, Pie, Cell
+} from 'recharts';
 import { Link } from 'react-router-dom';
+import axios from 'axios';
 
 const Dashboard: React.FC = () => {
-  const { addDailyData, getChartData, getDailyFact } = useData();
   const [filter, setFilter] = useState<'daily' | 'weekly' | 'monthly'>('daily');
-  const [inputs, setInputs] = useState({
-    travel: 0,
-    food: 0,
-    waste: 0,
-    electricity: 0,
-  });
+  const [inputs, setInputs] = useState({ travel: 0, food: 0, waste: 0, electricity: 0 });
+  const [chartData, setChartData] = useState([]);
+  const [dailyFact, setDailyFact] = useState('');
+  const [piechartData,setPieChartData] = useState([{ name: "Travel", value: 0, color: '#ef4444' }]);
+  const userId = localStorage.getItem('user_id');
 
-  const chartData = getChartData(filter);
-  const dailyFact = getDailyFact();
+  useEffect(() => {
+    fetchChartData();
+  }, [filter]);
+
+  useEffect(() => {
+    fetchDailyFact();
+  }, []);
+
+  const fetchChartData = async () => {
+    try {
+      const res = await axios.get(`http://localhost:5000/data/chart/${userId}/${filter}`);
+      console.log("Chart Data ",res.data)
+      setChartData(res.data);
+    } catch (err) {
+      console.error('Error fetching chart data', err);
+    }
+  };
+
+  const fetchDailyFact = async () => {
+    try {
+      const res = await axios.get('http://localhost:5000/data/fact');
+      setDailyFact(res.data.fact);
+    } catch (err) {
+      console.error('Error fetching daily fact', err);
+    }
+  };
 
   const handleInputChange = (category: keyof typeof inputs, value: number) => {
     setInputs(prev => ({ ...prev, [category]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    addDailyData({
-      date: new Date().toISOString(),
-      ...inputs,
-    });
-    setInputs({ travel: 0, food: 0, waste: 0, electricity: 0 });
+    try {
+      await axios.post(`http://localhost:5000/data/add/${userId}`, {
+        date: new Date().toISOString(),
+        ...inputs,
+      });
+      // setInputs({ travel: 0, food: 0, waste: 0, electricity: 0 });
+      fetchChartData(); 
+    } catch (err) {
+      console.error('Error submitting data', err);
+    }
   };
 
-  const pieData = [
-    { name: 'Travel', value: inputs.travel, color: '#ef4444' },
-    { name: 'Food', value: inputs.food, color: '#f97316' },
-    { name: 'Waste', value: inputs.waste, color: '#eab308' },
-    { name: 'Electricity', value: inputs.electricity, color: '#22c55e' },
+  useEffect(() =>  {
+    if (chartData.length === 0) return; // Prevent running if data is empty
+    const pieData = [
+    { name: 'Travel', value: chartData[0]["travel"], color: '#ef4444' },
+    { name: 'Food', value: chartData[0]['food'], color: '#f97316' },
+    { name: 'Waste', value: chartData[0]['waste'], color: '#eab308' },
+    { name: 'Electricity', value: chartData[0]['electricity'], color: '#22c55e' },
   ].filter(item => item.value > 0);
+  setPieChartData(pieData);
+  },[chartData])
+
 
   const totalFootprint = Object.values(inputs).reduce((sum, val) => sum + val, 0);
 
@@ -199,11 +236,11 @@ const Dashboard: React.FC = () => {
         {/* Today's Breakdown */}
         <div className="bg-white rounded-lg shadow-sm p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Today's Breakdown</h3>
-          {pieData.length > 0 ? (
+          {piechartData.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={pieData}
+                  data={piechartData}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
@@ -212,7 +249,7 @@ const Dashboard: React.FC = () => {
                   fill="#8884d8"
                   dataKey="value"
                 >
-                  {pieData.map((entry, index) => (
+                  {piechartData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>

@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify
 from models import User, Goal, Badge
-from app import db
+from extensions import db
 from sqlalchemy.sql import func
 from datetime import datetime
 
@@ -44,7 +44,7 @@ def get_rewards(user_id):
     leaderboard = (
         db.session.query(
             User.id,
-            User.name,
+            User.username,
             func.sum(Goal.points).label('points')
         )
         .join(Goal, Goal.user_id == User.id)
@@ -59,7 +59,7 @@ def get_rewards(user_id):
     for idx, u in enumerate(leaderboard, start=1):
         leaderboard_data.append({
             'rank': idx,
-            'name': u.name,
+            'name': u.username,
             'points': int(u.points),
             'avatar': '👤',  # Optionally customize
             'isUser': u.id == user_id

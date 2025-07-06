@@ -1,29 +1,44 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Trophy, Award, Star, Users, TrendingUp } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import { useData } from '../context/DataContext';
+import axios from 'axios';
 
 const Rewards: React.FC = () => {
-  const { user } = useAuth();
-  const { badges, goals } = useData();
+  const  userId=localStorage.getItem('user_id');
+  const [totalPoints, setTotalPoints] = useState(0);
+  const [earnedBadges, setEarnedBadges] = useState<any[]>([]);
+  const [availableBadges, setAvailableBadges] = useState<any[]>([]);
+  const [leaderboard, setLeaderboard] = useState<any[]>([]);
+  console.log("Rewards here");
 
-  const completedGoals = goals.filter(goal => goal.completed);
-  const earnedBadges = badges.filter(badge => badge.earned);
-  const availableBadges = badges.filter(badge => !badge.earned);
+  useEffect(() => {
+    // if (userId === null) return;
 
-  // Mock leaderboard data
-  const leaderboard = [
-    { rank: 1, name: 'Alex Johnson', points: 1250, avatar: '👨‍💻' },
-    { rank: 2, name: 'Sarah Chen', points: 1180, avatar: '👩‍🔬' },
-    { rank: 3, name: 'Mike Rodriguez', points: 1050, avatar: '👨‍🎨' },
-    { rank: 4, name: user?.name || 'You', points: user?.totalPoints || 0, avatar: '👤', isUser: true },
-    { rank: 5, name: 'Emma Wilson', points: 890, avatar: '👩‍💼' },
-  ];
+    const fetchRewards = async () => {
+      try {
+        const res = await axios.get(`http://localhost:5000/rewards/${userId}`);
+        const data = res.data;
+        console.log(data);
+        setTotalPoints(data.totalPoints);
+        setEarnedBadges(data.earnedBadges);
+        setAvailableBadges(data.availableBadges);
+        setLeaderboard(data.leaderboard);
+      } catch (err) {
+        console.error('Failed to load rewards data:', err);
+      }
+    };
 
+    console.log("Fetching rewards");
+    fetchRewards();
+  }, [userId]);
+  
+  
+  console.log("In rewards tab atleast");
   return (
     <div className="space-y-6">
       {/* Header */}
+      
       <div className="bg-white rounded-lg shadow-sm p-6">
+        {/* <h1>Here We Are</h1> */}
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Rewards & Achievements</h1>
         <p className="text-gray-600">
           Track your progress, earn badges, and see how you rank against other eco-warriors.
@@ -36,7 +51,7 @@ const Rewards: React.FC = () => {
           <div className="flex items-center">
             <Star className="h-8 w-8 text-yellow-500" />
             <div className="ml-4">
-              <h3 className="text-2xl font-bold text-gray-900">{user?.totalPoints || 0}</h3>
+              <h3 className="text-2xl font-bold text-gray-900">{totalPoints}</h3>
               <p className="text-sm text-gray-600">Total Points</p>
             </div>
           </div>
@@ -56,7 +71,7 @@ const Rewards: React.FC = () => {
           <div className="flex items-center">
             <Trophy className="h-8 w-8 text-green-500" />
             <div className="ml-4">
-              <h3 className="text-2xl font-bold text-gray-900">{completedGoals.length}</h3>
+              <h3 className="text-2xl font-bold text-gray-900">{earnedBadges.length}</h3>
               <p className="text-sm text-gray-600">Goals Completed</p>
             </div>
           </div>
@@ -66,7 +81,9 @@ const Rewards: React.FC = () => {
           <div className="flex items-center">
             <TrendingUp className="h-8 w-8 text-blue-500" />
             <div className="ml-4">
-              <h3 className="text-2xl font-bold text-gray-900">#4</h3>
+              <h3 className="text-2xl font-bold text-gray-900">
+                #{leaderboard.find((u: any) => u.isUser)?.rank || '-'}
+              </h3>
               <p className="text-sm text-gray-600">Global Rank</p>
             </div>
           </div>
@@ -135,12 +152,17 @@ const Rewards: React.FC = () => {
               }`}
             >
               <div className="flex items-center">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                  user.rank === 1 ? 'bg-yellow-500 text-white' :
-                  user.rank === 2 ? 'bg-gray-400 text-white' :
-                  user.rank === 3 ? 'bg-amber-600 text-white' :
-                  'bg-gray-200 text-gray-700'
-                }`}>
+                <div
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                    user.rank === 1
+                      ? 'bg-yellow-500 text-white'
+                      : user.rank === 2
+                      ? 'bg-gray-400 text-white'
+                      : user.rank === 3
+                      ? 'bg-amber-600 text-white'
+                      : 'bg-gray-200 text-gray-700'
+                  }`}
+                >
                   {user.rank}
                 </div>
                 <span className="text-2xl mx-3">{user.avatar}</span>
@@ -152,11 +174,15 @@ const Rewards: React.FC = () => {
                 </div>
               </div>
               {user.rank <= 3 && (
-                <Trophy className={`h-6 w-6 ${
-                  user.rank === 1 ? 'text-yellow-500' :
-                  user.rank === 2 ? 'text-gray-400' :
-                  'text-amber-600'
-                }`} />
+                <Trophy
+                  className={`h-6 w-6 ${
+                    user.rank === 1
+                      ? 'text-yellow-500'
+                      : user.rank === 2
+                      ? 'text-gray-400'
+                      : 'text-amber-600'
+                  }`}
+                />
               )}
             </div>
           ))}

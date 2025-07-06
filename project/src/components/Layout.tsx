@@ -1,11 +1,18 @@
-import React from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { Home, Target, Gift, BookOpen, LogOut, Leaf } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import axios from 'axios';
+
+interface User {
+  full_name: string;
+  totalPoints: number;
+}
 
 const Layout: React.FC = () => {
-  const { user, logout } = useAuth();
+  const [user, setUser] = useState<User | null>(null);
   const location = useLocation();
+  const navigate = useNavigate();
+  const userId = localStorage.getItem('user_id');
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
@@ -13,6 +20,31 @@ const Layout: React.FC = () => {
     { name: 'Recommendations', href: '/recommendations', icon: BookOpen },
     { name: 'Rewards', href: '/rewards', icon: Gift },
   ];
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const res = await axios.get(`http://localhost:5000/auth/me?user_id=${userId}`);
+        console.log("user_data",res.data);
+        setUser(res.data);
+      } catch (err) {
+        console.error('Failed to fetch user:', err);
+        navigate('/login');
+      }
+    };
+
+    fetchUser();
+  }, [navigate]);
+
+  const handleLogout = async () => {
+    try {
+      // await axios.post('http://localhost:5000/auth/logout'); // optional depending on backend
+      localStorage.clear();
+      navigate('/login');
+    } catch (err) {
+      console.error('Logout failed:', err);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -25,7 +57,7 @@ const Layout: React.FC = () => {
                 <span className="text-xl font-bold text-gray-900">Ecometer</span>
               </Link>
             </div>
-            
+
             <div className="hidden md:block">
               <div className="ml-10 flex items-baseline space-x-4">
                 {navigation.map((item) => {
@@ -51,11 +83,11 @@ const Layout: React.FC = () => {
 
             <div className="flex items-center space-x-4">
               <div className="text-sm text-gray-600">
-                <span className="font-medium">{user?.name}</span>
-                <div className="text-xs text-green-600">{user?.totalPoints} points</div>
+                <span className="font-medium">{user?.full_name || 'User'}</span>
+                <div className="text-xs text-green-600">{user?.totalPoints ?? 0} points</div>
               </div>
               <button
-                onClick={logout}
+                onClick={handleLogout}
                 className="flex items-center px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-red-600 hover:bg-red-50 transition-colors"
               >
                 <LogOut className="h-4 w-4 mr-2" />
