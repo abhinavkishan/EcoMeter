@@ -57,7 +57,7 @@ const CombinedSignup: React.FC = () => {
       if (res.ok) {
         localStorage.setItem('isLoggedIn', 'true');
         localStorage.setItem('user_id',data.user_id);
-        navigate('/login');
+        navigate('/dashboard');
       } else {
         setError(data.message || 'Signup failed');
       }

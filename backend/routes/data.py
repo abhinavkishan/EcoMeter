@@ -6,30 +6,71 @@ from sqlalchemy import func
 from dotenv import load_dotenv
 import os
 import cohere
-from openai import OpenAI
+from google import genai
+from google.genai import types
 import json
+import re
+# import requests
 
 data_bp = Blueprint('data', __name__, url_prefix='/data')
 
 load_dotenv()
-co = cohere.Client("HCpjrF88IxJNE3kwA6lyOZYxapJ4qB6psPf2oeKA")
+# co = cohere.Client("HCpjrF88IxJNE3kwA6lyOZYxapJ4qB6psPf2oeKA")
+client=genai.Client()
+
+
 @data_bp.route('/add/<int:user_id>', methods=['POST'])
 def add_data(user_id):
     data = request.json
-    new_entry = DailyData(
-        user_id = user_id,
-        date=datetime.utcnow().date(),
-        travel=data['travel'],
-        food=data['food'],
-        waste=data['waste'],
-        electricity=data['electricity']
-    )
-    existing = DailyData.query.filter_by(user_id=user_id, date=datetime.utcnow().date()).first()
+    today = datetime.utcnow().date()
+
+    # Check if data for today already exists
+    existing = DailyData.query.filter_by(user_id=user_id, date=today).first()
     if existing:
         return jsonify({'message': 'Data for today already exists'}), 400
+
+    # # --- Helper function to hit emission API ---
+    # def get_emission(activity_id, value, unit):
+    #     payload = {
+    #         "emission_factor": {
+    #             "activity_id": activity_id,
+    #             "data_version": "^21"
+    #         },
+    #         "parameters": {
+    #             "energy": value,
+    #             "energy_unit": unit
+    #         }
+    #     }
+    #     response = requests.post(
+    #         "https://api.climatiq.io/data/v1/estimate",  # Replace with real URL
+    #         json=payload,
+    #         headers={"Authorization": "Bearer WYDCFEW94X7ZHDPZTT3ZN97F0G", "Content-Type": "application/json"}
+    #     )
+    #     if response.status_code == 200:
+    #         return response.json().get("co2e", 0)  # Assuming 'co2e' is the emission result
+        # return 0
+
+    
+    travel_emission = 0.192*data["travel"]
+    food_emission = 2.5*data["food"]
+    waste_emission = 1.5*data["waste"]
+    electricity_emission = 4.5*data["electricity"]
+
+    # --- Save emissions to DB ---
+    new_entry = DailyData(
+        user_id=user_id,
+        date=today,
+        travel=travel_emission,
+        food=food_emission,
+        waste=waste_emission,
+        electricity=electricity_emission
+    )
+
     db.session.add(new_entry)
     db.session.commit()
-    return jsonify({'message': 'Data added'}), 201
+
+    return jsonify({'message': 'Emission data added'}), 201
+
 
 @data_bp.route('/chart/<int:user_id>/<string:filter_type>', methods=['GET'])
 def get_chart_data(user_id, filter_type):
@@ -88,6 +129,7 @@ def get_recommendations(user_id):
         'waste': sum(d.waste for d in recent_data),
         'electricity': sum(d.electricity for d in recent_data)
     }
+    print("summary:",summary)
 
     prompt = f"""
     A user has emitted the following carbon emissions over the past 30 days:
@@ -123,25 +165,28 @@ def get_recommendations(user_id):
         }}
       ]
     }}
-    Only return the JSON. No extra explanation.
+    "Return a JSON object with strict syntax. No comments or trailing commas."
     """
 
     try:
-        response = co.chat(
-            model="command-r",
-            message=prompt,
-            chat_history=[],
-            temperature=0.7
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",  # or "gemini-2.5-flash" depending on availability
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                temperature=0.7,
+                top_p=1
+            )
         )
-
+        # print(response)
         json_text = response.text.strip()
-        structured_data = json.loads(json_text)
-        print(structured_data)
+        print("Raw json text:\n",json_text)
+        cleaned_json = re.sub(r"^```json\s*|\s*```$", "", json_text)
+        structured_data = json.loads(cleaned_json)
+        print("Recommendations: ",structured_data)
         return jsonify(structured_data)
 
     except json.JSONDecodeError:
-        return jsonify({"error": "Cohere response was not valid JSON", "raw": json_text}), 500
+        return jsonify({"error": "Gemini response was not valid JSON", "raw": json_text}), 500
     except Exception as e:
-        print(str(e))
         return jsonify({"error": str(e)}), 500
 

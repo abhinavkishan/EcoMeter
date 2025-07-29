@@ -131,43 +131,84 @@ const Recommendations: React.FC = () => {
   }, []);
 
   return (
-    <div>
-      {/* You can render the data below */}
-      <h2 className="text-xl font-bold mb-4">Priority Actions</h2>
-      <ul className="space-y-4">
-        {priorityActions.map((action, idx) => (
-          <li
-            key={idx}
-            className="border border-gray-300 rounded-2xl p-4 shadow-md bg-white"
-          >
-            <h3 className="text-xl font-semibold text-gray-800 mb-2">
-              {action.title}
-            </h3>
-            <p className="text-gray-600 mb-2">{action.description}</p>
-            <p className="text-sm text-gray-700">
-              <span className="font-semibold">Impact:</span> {action.impact} |{" "}
-              <span className="font-semibold">Effort:</span> {action.effort} |{" "}
-              <span className="font-semibold">CO2 Savings:</span> {action.co2Savings}
-            </p>
-          </li>
-        ))}
-      </ul>
-      <h2 className="text-xl font-bold mt-8 mb-4">Recommendations by Category</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {recommendations.map((rec, idx) => (
-          <div key={idx} className={`p-4 rounded-lg shadow ${rec.bgColor}`}>
-            <div className="flex items-center gap-2 mb-2">
-              {/* <rec.icon className={`w-6 h-6 ${rec.color}`} /> */}
-              <h3 className="text-lg font-semibold">{rec.category}</h3>
-            </div>
-            <ul className="list-disc ml-5">
-              {rec.tips.map((tip, i) => (
-                <li key={i}>{tip}</li>
-              ))}
-            </ul>
-          </div>
-        ))}
+    <div className='space-y-6'>
+       {/* Header */}
+       <div className="bg-white rounded-lg shadow-sm p-6">
+         <h1 className="text-2xl font-bold text-gray-900 mb-2">Personalized Recommendations</h1>
+         <p className="text-gray-600">
+          Based on your carbon footprint data, here are tailored suggestions to help you reduce your environmental impact.
+         </p>
       </div>
+      {/* Priority Actions */}
+       <div className="bg-white rounded-lg shadow-sm p-6">
+         <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+           <Lightbulb className="h-5 w-5 mr-2 text-yellow-500" />
+           Priority Actions for You
+         </h2>
+         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+           {priorityActions.map((action, index) => (
+             <div key={index} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+               <div className="flex items-center justify-between mb-2">
+                 <h3 className="font-semibold text-gray-900">{action.title}</h3>
+                 <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                   action.impact === 'High' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
+                 }`}>
+                   {action.impact} Impact
+                 </span>
+               </div>
+               <p className="text-sm text-gray-600 mb-3">{action.description}</p>
+               <div className="flex items-center justify-between">
+                 <div className="text-sm">
+                   <span className="font-medium text-green-600">Save: {action.co2Savings}</span>
+                 </div>
+                 <div className="text-sm text-gray-500">
+                   Effort: {action.effort}
+                 </div>
+               </div>
+             </div>
+           ))}
+         </div>
+       </div>
+     {/* Category-wise Recommendations */}
+       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+         {recommendations.map((category, index) => {
+           return (
+             <div key={index} className="bg-white rounded-lg shadow-sm p-6">
+               <div className={`flex items-center mb-4 p-3 rounded-lg ${category.bgColor}`}>
+                 <h3 className="text-lg font-semibold text-gray-900">{category.category}</h3>
+               </div>
+               <ul className="space-y-3">
+                 {category.tips.map((tip, tipIndex) => (
+                   <li key={tipIndex} className="flex items-start">
+                     <ArrowRight className="h-4 w-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                     <span className="text-gray-700">{tip}</span>
+                   </li>
+                 ))}
+               </ul>
+             </div>
+           );
+         })}
+       </div>
+       {/* Additional Resources */}
+       <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg p-6">
+         <h3 className="text-lg font-semibold text-gray-900 mb-4">Additional Resources</h3>
+         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+           <div className="bg-white rounded-lg p-4">
+             <h4 className="font-semibold text-gray-900 mb-2">Carbon Offset Programs</h4>
+             <p className="text-sm text-gray-600">
+               Consider purchasing carbon offsets for emissions you can't reduce. Look for certified programs
+               that support reforestation, renewable energy, or community projects.
+             </p>
+           </div>
+           <div className="bg-white rounded-lg p-4">
+             <h4 className="font-semibold text-gray-900 mb-2">Sustainable Living Tips</h4>
+             <p className="text-sm text-gray-600">
+               Small changes in daily habits can make a big difference. Focus on reducing, reusing, and recycling
+               to minimize your environmental footprint.
+             </p>
+           </div>
+         </div>
+       </div>
     </div>
   );
 };

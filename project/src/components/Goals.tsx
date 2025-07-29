@@ -27,7 +27,7 @@ const Goals: React.FC = () => {
       // Step 2: Get all goals
       const res = await axios.get(`http://localhost:5000/goals/${userId}`);
       const allGoals: Goal[] = res.data;
-
+      console.log(allGoals)
       // Optional: Only show incomplete goals
       const incompleteGoals = allGoals.filter(goal => !goal.completed);
 

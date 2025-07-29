@@ -4,6 +4,8 @@ from extensions import db
 from datetime import datetime,timedelta
 from models import User,DailyData
 from sqlalchemy import desc
+from google import genai
+from google.genai import types
 import cohere
 import json
 
@@ -84,7 +86,6 @@ def add_goal(user_id):
 
 @goals_bp.route('/generate_goals/<int:user_id>', methods=['POST'])
 def generate_goals(user_id):
-
     latest_goal = Goal.query.filter_by(user_id=user_id).order_by(desc(Goal.generated_at)).first()
     if latest_goal and (datetime.utcnow() - latest_goal.generated_at).days < 7:
         return jsonify({'message': 'Goals already generated recently'}), 200
@@ -105,7 +106,7 @@ def generate_goals(user_id):
         'electricity': sum(d.electricity for d in recent_data),
     }
 
-    # Step 3: Prompt for co.chat
+    # Step 3: Prompt for Gemini
     prompt = f"""
 You are an expert environmental assistant. A user has emitted the following carbon emissions in the last 14 days:
 - Travel: {summary['travel']} kg CO2
@@ -134,13 +135,17 @@ No explanation or preamble. Only return the JSON.
 """
 
     try:
-        response = co.chat(
-            message=prompt,
-            model="command-r",
-            temperature=0.7,
-            chat_history=[],
+        client = genai.Client()
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                temperature=0.7,
+                top_p=1
+            )
         )
 
+        # Gemini returns text inside `response.text` like Cohere
         raw_text = response.text.strip()
 
         # Try parsing as JSON
@@ -164,13 +169,13 @@ No explanation or preamble. Only return the JSON.
             })
 
         db.session.commit()
-
+        print(saved_goals)
         return jsonify({
             'message': 'Goals generated and saved successfully',
             'goals': saved_goals
         }), 201
 
     except json.JSONDecodeError:
-        return jsonify({'error': 'Response from Cohere was not valid JSON', 'raw': raw_text}), 500
+        return jsonify({'error': 'Response from Gemini was not valid JSON', 'raw': raw_text}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500

@@ -40,10 +40,15 @@ class Goal(db.Model):
 
 class Badge(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    description = db.Column(db.Text, nullable=False)
-    icon = db.Column(db.String(10), nullable=False)  # Use emoji or icon name
-    criteria = db.Column(db.String(100))  # Like "10_goals", "1000_points", etc.
-    earned = db.Column(db.Boolean, default=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    earned_date = db.Column(db.DateTime)
+    name = db.Column(db.String(128), unique=True)
+    description = db.Column(db.String(256))
+    icon = db.Column(db.String(10))
+
+class UserBadge(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    badge_id = db.Column(db.Integer, db.ForeignKey('badge.id'))
+    earned_date = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship('User', backref='user_badges')
+    badge = db.relationship('Badge')
